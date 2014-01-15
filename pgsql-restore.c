@@ -181,7 +181,8 @@ void dbconnect ( pgsqldata * pdata ){
 void parse_args ( pgsqldata * pdata, int argc, char* argv[] ){
 
    int i;
-   char * fullconfpath;
+   char *fullconfpath;
+   char ch;
 
    if ( argc < 3 ){
       /* TODO - add help screen */
@@ -189,44 +190,53 @@ void parse_args ( pgsqldata * pdata, int argc, char* argv[] ){
       abortprg ( pdata, 1, "Not enough parameters!" );
    }
 
-   for (i = 1; i < argc; i++) {
-//      printf ( "%s\n", argv[i] );
-      if ( !strcmp ( argv[i], "-c" ) ){
+   while ((ch = getopt(argc, argv, "c:t:x:w:r:v")) != -1) {
+      switch (ch) {
+      case 'c':
          /* we have got a custom config file */
-         fullconfpath = MALLOC ( BUFLEN );
-         ASSERT_NVAL_RET ( fullconfpath );
-         realpath ( argv [ i + 1 ], fullconfpath );
-         pdata->configfile = bstrdup ( fullconfpath );
-         FREE ( fullconfpath );
-         i++;
-         continue;
+         fullconfpath = MALLOC(BUFLEN);
+         ASSERT_NVAL_RET(fullconfpath);
+         realpath(optarg, fullconfpath );
+         pdata->configfile = bstrdup(fullconfpath);
+         FREE (fullconfpath);
+         break;
+
+      case 't':
+         if (pdata->pitr == PITR_CURRENT) {
+            pdata->restorepit = format_btime (optarg);
+            pdata->pitr = PITR_TIME;
+         }
+         break;
+
+      case 'x':
+         if (pdata->pitr == PITR_CURRENT) {
+            pdata->restorepit = bstrdup(optarg);
+            pdata->pitr = PITR_XID;
+         }
+         break;
+
+      case 'w':
+         pdata->where = bstrdup(optarg);
+         break;
+
+      case 'r':
+         pdata->restoreclient = bstrdup(optarg);
+         break;
+
+      case 'v':
+         pdata->verbose = true;
+         break;
+
+      case '?':
+      default:
+         print_help ( pdata );
+         abortprg ( pdata, 1, "Usage!" );
       }
-      if ( !strcmp ( argv[i], "-t" ) && pdata->pitr == PITR_CURRENT ){
-         pdata->restorepit = format_btime ( argv [ i + 1 ] );
-         pdata->pitr = PITR_TIME;
-         i++;
-         continue;
-      }
-      if ( !strcmp ( argv[i], "-x" ) && pdata->pitr == PITR_CURRENT ){
-         pdata->restorepit = bstrdup ( argv [ i + 1 ] );
-         pdata->pitr = PITR_XID;
-         i++;
-         continue;
-      }
-      if ( !strcmp ( argv[i], "-w" ) ){
-         pdata->where = bstrdup ( argv [ i + 1 ] );
-         i++;
-         continue;
-      }
-      if ( !strcmp ( argv[i], "-r" ) ){
-         pdata->restoreclient = bstrdup ( argv [ i + 1 ] );
-         i++;
-         continue;
-      }
-      if ( !strcasecmp ( argv[i], "-v" ) ){
-         pdata->verbose = 1;
-         continue;
-      }
+   }
+   argc -= optind;
+   argv += optind;
+
+   for (i = 0; i < argc; i++) {
       if ( !strcasecmp ( argv[i], "restore" ) ){
          pdata->mode = PGSQL_DB_RESTORE;
          continue;
