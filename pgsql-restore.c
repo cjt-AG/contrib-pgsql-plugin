@@ -1425,7 +1425,7 @@ void clear_receive_buffer ( pgsqldata * pdata ){
 
 enum FILESETTYPE {
    DBFILESET      = 0,
-   ARCHFILESET    = 1,   
+   ARCHFILESET    = 1
 };
 
 static const char * fstemplate[2][2] =
@@ -2231,7 +2231,7 @@ int delete_recovery_conf ( pgsqldata * pdata ){
 enum WALLOC {
    WAL_LOC_NOTFOUND = 1,
    WAL_LOC_BACULA,
-   WAL_LOC_ARCHDEST,
+   WAL_LOC_ARCHDEST
 };
 
 int find_wal_location ( pgsqldata * pdata ){

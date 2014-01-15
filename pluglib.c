@@ -10,7 +10,7 @@
 #include <sys/stat.h>
 #include <sys/types.h>
 
-#include "bacula.h"
+#include "bareos.h"
 #include "fd_plugins.h"
 #include "pluglib.h"
 

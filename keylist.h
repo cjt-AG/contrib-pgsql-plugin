@@ -11,7 +11,7 @@
 #define _KEYLIST_H_
 
 #ifndef __WIN32__
- #include "bacula.h"
+#include "bareos.h"
 #endif
 
 #define KEY_NO_ATTR     (-1)

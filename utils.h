@@ -168,7 +168,7 @@ int readline ( int fd, char * buf, int size );
 int freadline ( FILE * stream, char * buf, int size );
 //char * format_btime ( const char * str );
 int strisprintable ( char * str, int len );
-#ifdef __sun__
+#if defined(__sun__) || defined(__SUNPRO_CC)
 int getgrouplist (const char *uname, gid_t agroup, gid_t *groups, int *grpcnt);
 #endif
 #ifdef __WIN32__

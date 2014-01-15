@@ -13,7 +13,7 @@
 #include <sys/types.h>
 #include <ctype.h>
 
-#include "bacula.h"
+#include "bareos.h"
 #include "utils.h"
 
 /* definitions */

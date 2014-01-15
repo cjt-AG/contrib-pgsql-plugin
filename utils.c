@@ -265,7 +265,7 @@ char * format_btime ( const char * str ){
 }
 #endif
 
-#ifdef __sun__
+#if defined(__sun__) || defined(__SUNPRO_CC)
 /*
  * missing routine in Solaris
  */

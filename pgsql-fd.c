@@ -2,7 +2,7 @@
  *  Copyright (c) 2013 Inteos Sp. z o.o.
  *  All right reserved. See LICENSE.pgsql for details.
  *
- * This is a Bacula plugin for making backup and restore of PostgreSQL database.
+ * This is a Bareos plugin for making backup and restore of PostgreSQL database.
  *
  * config file: pgsql.conf
 
@@ -36,9 +36,8 @@ TODO:
    * prepare a docummentation about plugin
  */
 
-#include "bacula.h"
+#include "bareos.h"
 #include "fd_plugins.h"
-#include "fdapi.h"
 
 /* it is PostgreSQL backup plugin, so we need a libpq library */
 #include <libpq-fe.h>
@@ -89,17 +88,13 @@ static bRC checkFile(bpContext *ctx, char *fname);
 keylist * get_file_list ( bpContext *ctx, keylist * list, const char * base, const char * path );
 
 
-/* Pointers to Bacula functions */
+/* Pointers to Bareos functions */
 static bFuncs *bfuncs = NULL;
 static bInfo  *binfo = NULL;
 
-static pInfo pluginInfo = {
-   sizeof(pluginInfo),
-#ifdef FDAPI
-   FDAPI,
-#else
+static genpInfo pluginInfo = {
+   sizeof(genpInfo),
    FD_PLUGIN_INTERFACE_VERSION,
-#endif
    FD_PLUGIN_MAGIC,
    PLUGIN_LICENSE,
    PLUGIN_AUTHOR,
@@ -130,7 +125,7 @@ static pFuncs pluginFuncs = {
 
 /*
  * pgsql plugin requires working PostgreSQL catalog database
- * it could be Bacula catalog database if it is postgresql
+ * it could be Bareos catalog database if it is postgresql
  * it can't be database which we backup, because it has to be available
  * during instance shutdown, when WAls are generated.
  */
@@ -140,36 +135,35 @@ enum PGSQLMode {
    PGSQL_ARCH_BACKUP,
    PGSQL_DB_BACKUP,
    PGSQL_ARCH_RESTORE,
-   PGSQL_DB_RESTORE,
+   PGSQL_DB_RESTORE
 };
 
 enum PGFileType {
    PG_NONE  = 0,
    PG_FILE,
    PG_LINK,
-   PG_DIR,
+   PG_DIR
 };
 
 typedef enum {
    PARSE_BACKUP,
-   PARSE_RESTORE,
+   PARSE_RESTORE
 } ParseMode;
 
-typedef struct _pg_plug_inst pg_plug_inst;
-struct _pg_plug_inst {
-   int      JobId;
-   PGconn   * catdb;
-   char     * restore_command_value;
-   char     * configfile;
-   keylist  * paramlist;
-   int      mode;
-   keylist  * filelist;
-   keyitem  * curfile;
-   int      curfd;
-   int      diropen;
-   char     * linkval;
-   int      linkread;
-};
+typedef struct _pg_plug_inst {
+   int JobId;
+   PGconn *catdb;
+   char *restore_command_value;
+   char *configfile;
+   keylist *paramlist;
+   int mode;
+   keylist *filelist;
+   keyitem *curfile;
+   int curfd;
+   int diropen;
+   char * linkval;
+   int linkread;
+} pg_plug_inst;
 
 /* 
  * TODO:
@@ -221,7 +215,7 @@ struct _pg_plug_inst {
    ptr = NULL;
 
 /*
- * TODO: extend with additional calls for Bacula-FD: baculaAddOptions
+ * TODO: extend with additional calls for Bareos-FD: bareosAddOptions
  */
 
 #define JMSG0(ctx,type,msg) \
@@ -259,13 +253,16 @@ struct _pg_plug_inst {
 /*
  * Plugin called here when it is first loaded
  */
-bRC loadPlugin ( bInfo *lbinfo, bFuncs *lbfuncs, pInfo **pinfo, pFuncs **pfuncs )
+bRC DLL_IMP_EXP loadPlugin(bInfo *lbinfo,
+                           bFuncs *lbfuncs,
+                           genpInfo **pinfo,
+                           pFuncs **pfuncs)
 {
-   bfuncs = lbfuncs;                  /* set Bacula funct pointers */
+   bfuncs = lbfuncs;                  /* set Bareos funct pointers */
    binfo  = lbinfo;
 
    printf ( PLUGIN_INFO "version %s %s (c) 2011 by Inteos\n", PLUGIN_VERSION, PLUGIN_DATE );
-   printf ( PLUGIN_INFO "connected to Bacula version %d\n", binfo->version );
+   printf ( PLUGIN_INFO "connected to Bareos version %d\n", binfo->version );
 
    *pinfo  = &pluginInfo;             /* return pointer to our info */
    *pfuncs = &pluginFuncs;            /* return pointer to our functions */
@@ -274,7 +271,7 @@ bRC loadPlugin ( bInfo *lbinfo, bFuncs *lbfuncs, pInfo **pinfo, pFuncs **pfuncs 
 }
 
 /*
- * Plugin called here when it is unloaded, normally when Bacula is going to exit.
+ * Plugin called here when it is unloaded, normally when Bareos is going to exit.
  */
 bRC unloadPlugin()
 {
@@ -306,9 +303,15 @@ static bRC newPlugin ( bpContext *ctx )
    /* initialize pinst contents */
    memset ( pinst, 0, sizeof ( pg_plug_inst ) );
 
-   bfuncs->getBaculaValue ( ctx, bVarJobId, (void *)&pinst->JobId );
+   bfuncs->getBareosValue ( ctx, bVarJobId, (void *)&pinst->JobId );
    DMSG1 ( ctx, D1, "newPlugin JobId=%d\n", pinst->JobId );
 
+   bfuncs->registerBareosEvents(ctx,
+                                4,
+                                bEventEndBackupJob,
+                                bEventStartRestoreJob,
+                                bEventRestoreCommand,
+                                bEventBackupCommand);
    return bRC_OK;
 }
 
@@ -325,7 +328,7 @@ static bRC freePlugin ( bpContext *ctx )
    pinst = (pg_plug_inst *) ctx->pContext;
 
    ASSERT_bfuncs;
-   bfuncs->getBaculaValue ( ctx, bVarJobId, (void *)&JobId );
+   bfuncs->getBareosValue ( ctx, bVarJobId, (void *)&JobId );
    if ( pinst->JobId != JobId )
    {
       JMSG0 ( ctx, M_ERROR, "freePlugin JobId mismatch" );
@@ -381,7 +384,7 @@ static bRC setPluginValue ( bpContext *ctx, pVariable var, void *value )
  */
 bRC parse_plugin_command ( bpContext *ctx, const ParseMode parse_mode, const char * command )
 {
-   /* pgsql:/usr/local/bacula/etc/pgsql.phobos.conf:[wal,db] */
+   /* pgsql:/usr/local/bareos/etc/pgsql.phobos.conf:[wal,db] */
    char * s;
    char * n;
    pg_plug_inst * pinst;
@@ -1139,7 +1142,7 @@ keylist * get_file_list ( bpContext *ctx, keylist * list, const char * base, con
       closedir ( dirp );
 
       /* finally at the end (?) we add en entry for directory
-       * entry is required for Bacula to archive directory atributes */
+       * entry is required for Bareos to archive directory atributes */
       nlist = add_dir_list ( ctx, nlist, base, path, bpath );
 
    } else
@@ -1179,7 +1182,7 @@ bRC get_dbf_list ( bpContext *ctx ){
 }
 
 /*
- * Called by Bacula when there are certain events that the
+ * Called by Bareos when there are certain events that the
  *   plugin might want to know.  The value depends on the
  *   event.
  */
@@ -1195,18 +1198,6 @@ static bRC handlePluginEvent(bpContext *ctx, bEvent *event, void *value){
    DMSG1 ( ctx, D1, "handlePluginEvent: %i\n", event->eventType );
 
    switch (event->eventType) {
-   case bEventJobStart:
-   // unused in ur case, information only
-      DMSG1 ( ctx, D2, "bEventJobStart value=%s\n", NPRT((char *)value) );
-      break;
-   case bEventJobEnd:
-   // unused in ur case, information only
-      DMSG1 ( ctx, D2, "bEventJobEnd value=%s\n", NPRT((char *)value) );
-      break;
-   case bEventStartBackupJob:
-   // unused in ur case, information only
-      DMSG1 ( ctx, D2, "bEventStartBackupJob value=%s\n", NPRT((char *)value) );
-      break;
    case bEventEndBackupJob:
    // closing database connection
       DMSG1 ( ctx, D2, "bEventEndBackupJob value=%s\n", NPRT((char *)value));
@@ -1217,25 +1208,11 @@ static bRC handlePluginEvent(bpContext *ctx, bEvent *event, void *value){
          }
       }
       break;
-   case bEventLevel:
-   // unused in ur case, information only
-   // XXX: it could be usefull
-      DMSG1 ( ctx, D2, "bEventLevel=%c\n", (char) ( (intptr_t)value & 0xff) );
-      break;
-   case bEventSince:
-   // unused in ur case, information only
-      DMSG1 ( ctx, D2, "bEventSince=%ld\n", (intptr_t)value);
-      break;
    case bEventStartRestoreJob:
    /* Test if restored database works or not, but we have very limited info about it,
     * it should be realized by external utility */
       DMSG1 ( ctx, D2, "StartRestoreJob value=%s\n", NPRT((char *)value));
       break;
-   case bEventEndRestoreJob:
-   // unused in ur case, information only
-      DMSG0 ( ctx, D2, "bEventEndRestoreJob\n");
-      break;
-
    /* Plugin command e.g. plugin = <plugin-name>:<name-space>:command */
    case bEventRestoreCommand:
       /* setup a plugin parameters: plugin = pgsql:<file_conf>:[wal,db] */
@@ -1245,7 +1222,6 @@ static bRC handlePluginEvent(bpContext *ctx, bEvent *event, void *value){
          return bRC_Error;
       }
       break;
-
    case bEventBackupCommand:
       /* setup a plugin parameters: plugin = pgsql:<file_conf>:[wal,db] */
       DMSG1 ( ctx, D2, "bEventBackupCommand value=%s\n", NPRT((char *)value) );
@@ -1299,32 +1275,18 @@ static bRC handlePluginEvent(bpContext *ctx, bEvent *event, void *value){
          //print_keylist ( pinst->filelist );
       }
       break;
-   case bEventPluginCommand:
-   // unused in ur case, information only
-      DMSG1 ( ctx, D2, "bEventPluginCommand value=%s\n", NPRT((char *)value) );
-      break;
-
-   case bEventEndFileSet:
-   // unused in ur case, information only
-      DMSG1 ( ctx, D2, "bEventEndFileSet value=%s\n", NPRT((char *)value) );
-      break;
-
-   case bEventRestoreObject:
-   // unused in ur case, information only
-      DMSG1 ( ctx, D2, "bEventRestoreObject value=%s\n", NPRT((char *)value) );
-      break;
-
    default:
    // enabled only for Debug
       DMSG1 ( ctx, D2, "unknown event=%d\n", event->eventType );
    }
+
    return bRC_OK;
 }
 
 /*
  * Called when starting to backup a file.  Here the plugin must
  *  return the "stat" packet for the directory/file and provide
- *  certain information so that Bacula knows what the file is.
+ *  certain information so that Bareos knows what the file is.
  *  The plugin can create "Virtual" files by giving them a
  *  name that is not normally found on the file system.
  */
@@ -1351,7 +1313,7 @@ static bRC startBackupFile(bpContext *ctx, struct save_pkt *sp){
          buf = MALLOC ( PATH_MAX );
          ASSERT_p ( buf );
          /* pgsqlarch:<ARCHCLIENT>/<WAL_Filename> */
-         /* above sentence will be splited in Bacula catalog on <path>/<file> */
+         /* above sentence will be splited in Bareos catalog on <path>/<file> */
          snprintf ( buf, PATH_MAX, "pgsqlarch:%s/%s",
                search_key ( pinst->paramlist, "ARCHCLIENT" ),
                pinst->curfile->value );
@@ -1399,7 +1361,7 @@ static bRC startBackupFile(bpContext *ctx, struct save_pkt *sp){
          }
          DMSG2 ( ctx, D3, "filename=%s, vfilename=%s\n", filename, vfilename );
       } else {
-         /* if we return a value different from bRC_OK then Bacula will finish
+         /* if we return a value different from bRC_OK then Bareos will finish
           * backup process, which at first call means no files to archive */
          return bRC_Max;
       }
@@ -1412,7 +1374,7 @@ static bRC startBackupFile(bpContext *ctx, struct save_pkt *sp){
          /* real filename || $ROOT$ if vfilename is absolute, check this out */
          if ( strncmp ( pinst->curfile->key, "$ROOT$", PATH_MAX ) == 0 ){
             /* pgsqltbs:<ARCHCLIENT>/<TBS_Filename> */
-            /* above sentence will be splited in Bacula catalog on <path>/<file> */
+            /* above sentence will be splited in Bareos catalog on <path>/<file> */
             snprintf ( buf, PATH_MAX, "pgsqltbs:%s%s",
                   search_key ( pinst->paramlist, "ARCHCLIENT" ),
                   pinst->curfile->value );
@@ -1420,7 +1382,7 @@ static bRC startBackupFile(bpContext *ctx, struct save_pkt *sp){
             filename = pinst->curfile->value;
          } else {
             /* pgsqldb:<ARCHCLIENT>/<DB_Filename> */
-            /* above sentence will be splited in Bacula catalog on <path>/<file> */
+            /* above sentence will be splited in Bareos catalog on <path>/<file> */
             snprintf ( buf, PATH_MAX, "pgsqldb:%s/%s",
                   search_key ( pinst->paramlist, "ARCHCLIENT" ),
                   pinst->curfile->value );
@@ -1869,7 +1831,7 @@ bRC perform_arch_close ( bpContext *ctx, struct io_pkt *io ) {
 }
 
 /*
- * Do actual I/O.  Bacula calls this after startBackupFile
+ * Do actual I/O.  Bareos calls this after startBackupFile
  *   or after startRestoreFile to do the actual file
  *   input or output.
  */

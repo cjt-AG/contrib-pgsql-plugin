@@ -12,7 +12,7 @@
 #include <libpq-fe.h>
 #include <sys/types.h>
 #include <dirent.h>
-#include <bacula.h>
+#include <bareos.h>
 #include "keylist.h"
 #include "parseconfig.h"
 
@@ -211,14 +211,14 @@ typedef enum {
    PG_NONE  = 0,
    PG_FILE,
    PG_LINK,
-   PG_DIR,
+   PG_DIR
 } PGSQL_FILETYPE_T;
 
 /* log levels (utils only) */
 typedef enum {
    LOGERROR,
    LOGWARNING,
-   LOGINFO,
+   LOGINFO
 } LOG_LEVEL_T;
 
 /* pgsql plugin or utils backup/restore modes */
@@ -228,14 +228,14 @@ typedef enum {
    PGSQL_ARCH_CTL_BACKUP,
    PGSQL_DB_BACKUP,
    PGSQL_DB_RESTORE,
-   PGSQL_ARCH_RESTORE,
+   PGSQL_ARCH_RESTORE
 } PGSQL_MODE_T;
 
 /* restore point-in-time */
 typedef enum {
    PITR_CURRENT,
    PITR_TIME,
-   PITR_XID,
+   PITR_XID
 } PGSQL_PITR_T;
 
 /* pgsql_status definitions */
@@ -261,7 +261,7 @@ typedef enum {
    PGSQL_STATUS_DB_OFFLINE_START    = 14, /* unimplemented */
    PGSQL_STATUS_DB_OFFLINE_INPROG   = 15, /* unimplemented */
    PGSQL_STATUS_DB_OFFLINE_FINISH   = 16, /* unimplemented */
-   PGSQL_STATUS_DB_OFFLINE_FAILED   = 17, /* unimplemented */
+   PGSQL_STATUS_DB_OFFLINE_FAILED   = 17  /* unimplemented */
 } PGSQL_STATUS_T;
 
 #define PGSQL_STATUS_WAL_OK    "3,5,8"
@@ -312,7 +312,7 @@ struct _pgugid {
 };
 
 /* 
- * bacula console communication message structure
+ * BAREOS console communication message structure
  */
 #define MSGBUFLEN 1024
 typedef struct _consmsgbuf consmsgbuf;
