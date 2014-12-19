@@ -1133,7 +1133,7 @@ int remove_pgdata_tablespaces ( pgsqldata * pdata ){
  */
 char * pasword_md5digest ( pgsqldata * pdata ){
 
-   struct MD5Context md5c;
+   MD5_CTX md5c;
    unsigned char digest[CRYPTO_DIGEST_MD5_SIZE];
    char * password;
    char * p;
@@ -1144,10 +1144,10 @@ char * pasword_md5digest ( pgsqldata * pdata ){
       abortprg ( pdata, 14, "out of memory!" );
    }
 
-   MD5Init(&md5c);
+   MD5_Init(&md5c);
    p = search_key ( pdata->paramlist, "DIRPASSWD" );
-   MD5Update(&md5c, (unsigned char *) p, strlen ( p ) );
-   MD5Final(digest, &md5c);
+   MD5_Update(&md5c, (unsigned char *) p, strlen ( p ) );
+   MD5_Final(digest, &md5c);
    for (i = j = 0; i < sizeof(digest); i++) {
       sprintf ( &password[j], "%02x", digest[i] );
       j += 2;
