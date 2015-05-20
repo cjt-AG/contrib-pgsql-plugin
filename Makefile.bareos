@@ -2,23 +2,29 @@
 # Makefile for inteos-pgsql-plugin on Linux
 #
 
-# Flags & libs
-BAREOSSRC =
-BAREOSVERSION = $(shell bconsole help 2>&1|grep Version:|awk '{print $$2}')
-PGSQLVERSION = $(shell grep PLUGIN_VERSION pgsql-fd.c|grep define|awk '{print $$3}'|sed 's/"//g')
+# Absolute or relative PATH to BAREOS source dir with build libraries and binaries.
+BAREOS_SRC =
 
-plugindir = /usr/lib/bareos/plugins
+# Flags & libs
+BAREOS_VERSION = $(shell bconsole help 2>&1|grep Version:|awk '{print $$2}')
+PGSQL_VERSION = $(shell grep PLUGIN_VERSION pgsql-fd.c|grep define|awk '{print $$3}'|sed 's/"//g')
+LIBTOOL = $(BAREOS_SRC)/libtool
+
+plugindir = /usr/lib64/bareos/plugins
 sbindir = /usr/sbin
 libdir = /usr/lib/bareos
 confdir = /etc/bareos
 
+CXX = g++
 CFLAGS = -g -Wall -fno-strict-aliasing -fno-exceptions -fPIC
-CPPFLAGS = -g -fno-strict-aliasing -fno-exceptions -fno-rtti -Wall -fPIC
+CXXFLAGS = -g -fno-strict-aliasing -fno-exceptions -fno-rtti -Wall -fPIC
 LDFLAGS =
-BAREOS_H = -I../$(BAREOS_SRC)/src -I../$(BAREOS_SRC)/src/filed
+BAREOS_H = -I$(BAREOS_SRC)/src -I$(BAREOS_SRC)/src/include -I$(BAREOS_SRC)/src/filed
 DB_H = -I/usr/include/postgresql
-BAREOS_LIBS = -L$(libdir) -lbareos
-DB_LIBS = -L/usr/lib -lpq -lcrypt
+DB_LIB = /usr/lib
+BAREOS_LIBS = -L$(BAREOS_SRC)/src/lib -lbareos
+DB_LIBS = -L$(DB_LIB) -R $(DB_LIB) -lpq -lcrypt
+INSTALL = /usr/bin/install -c
 
 PGSQLSRC = pgsql-fd.c pgsql-archlog.c pgsql-restore.c pgsqllib.c
 PGSQLOBJ = $(PGSQLSRC:.c=.lo)
@@ -33,30 +39,30 @@ clean: libtool-clean pgsql-clean
 
 %.lo : %.c Makefile
 	@echo "Compiling $(@:.lo=.c) ..."
-	@libtool --silent --tag=CXX --mode=compile g++ $(CPPFLAGS) -c $(@:.lo=.c)
+	@$(LIBTOOL) --silent --tag=CXX --mode=compile $(CXX) $(CXXFLAGS) -c $(@:.lo=.c)
 
 $(BACOBJ): Makefile $(BACSRC)
 	@echo "Compiling BAClib required $(@:.lo=.c) ..."
-	@libtool --silent --tag=CXX --mode=compile g++ $(CPPFLAGS) $(BAREOS_H) -c $(@:.lo=.c)
+	@$(LIBTOOL) --silent --tag=CXX --mode=compile $(CXX)$(CXXFLAGS) $(BAREOS_H) -c $(@:.lo=.c)
 
 pgsql: Makefile pgsql-fd.la pgsql-archlog pgsql-restore
 
 $(PGSQLOBJ): Makefile $(PGSQLSRC)
 	@echo "Compiling PGSQL $(@:.lo=.c) ..."
-	@libtool --silent --tag=CXX --mode=compile g++ $(CPPFLAGS) $(BAREOS_H) $(DB_H) -c $(@:.lo=.c)
+	@$(LIBTOOL) --silent --tag=CXX --mode=compile $(CXX) $(CXXFLAGS) $(BAREOS_H) $(DB_H) -c $(@:.lo=.c)
 
 pgsql-fd.la: pgsql-fd.lo keylist.lo parseconfig.lo pluglib.lo utils.lo
 	@echo "Building PGSQL $(@:.la=.so) ..."
-	@libtool --silent --tag=CXX --mode=link g++ -shared $(LDFLAGS) $^ -o $@ -rpath $(plugindir) -module \
+	@$(LIBTOOL) --silent --tag=CXX --mode=link $(CXX) -shared $(LDFLAGS) $^ -o $@ -rpath $(plugindir) -module \
 		-export-dynamic -avoid-version $(DB_LIBS)
 
 pgsql-archlog: pgsql-archlog.lo parseconfig.lo keylist.lo pgsqllib.lo utils.lo pluglib.lo
 	@echo "Making $@ ..."
-	@libtool --silent --tag=CXX --mode=link g++ -o $@ $^ $(BAREOS_LIBS) $(DB_LIBS)
+	@$(LIBTOOL) --silent --tag=CXX --mode=link $(CXX) -o $@ $^ $(BAREOS_LIBS) $(DB_LIBS)
 
 pgsql-restore: pgsql-restore.lo parseconfig.lo keylist.lo pgsqllib.lo utils.lo pluglib.lo
 	@echo "Making $@ ..."
-	@libtool --silent --tag=CXX --mode=link g++ -o $@ $^ $(BAREOS_LIBS) $(DB_LIBS)
+	@$(LIBTOOL) --silent --tag=CXX --mode=link $(CXX) -o $@ $^ $(BAREOS_LIBS) $(DB_LIBS)
 
 pgsql-clean:
 	@echo "Cleaning pgsql ..."
@@ -69,25 +75,25 @@ libtool-clean:
 install-pgsql-fd: pgsql-fd.la
 	@echo "Installing plugin ... $(^:.la=.so)"
 	@mkdir -p $(DESTDIR)$(plugindir)
-	@libtool --silent --tag=CXX --mode=install /usr/bin/install -c -m 0750 $^ $(DESTDIR)$(plugindir)
+	@$(LIBTOOL) --silent --tag=CXX --mode=install $(INSTALL) -m 0750 $^ $(DESTDIR)$(plugindir)
 	@rm -f $(DESTDIR)$(plugindir)/$^
 
 install-pgsql-utils: pgsql-archlog pgsql-restore
 	@echo "Installing utils ... $^"
 	@mkdir -p $(DESTDIR)$(sbindir)
-	@libtool --silent --tag=CXX --mode=install /usr/bin/install -c -m 0755 $^ $(DESTDIR)$(sbindir)
+	@$(LIBTOOL) --silent --tag=CXX --mode=install $(INSTALL) -m 0755 $^ $(DESTDIR)$(sbindir)
 
 install-pgsql-config: pgsql.conf
 	@echo "Installing config ... $^"
 	@mkdir -p $(DESTDIR)$(confdir)
-	@libtool --silent --tag=CXX --mode=install /usr/bin/install -c -m 0640 pgsql.conf $(DESTDIR)$(confdir)/pgsql.conf.example
+	@$(LIBTOOL) --silent --tag=CXX --mode=install $(INSTALL) -m 0640 pgsql.conf $(DESTDIR)$(confdir)/pgsql.conf.example
 
 install-pgsql: install-pgsql-fd install-pgsql-config install-pgsql-utils
 
 install: install-pgsql
 
 package-pgsql: install-pgsql inteos-pgsql.spec
-	@echo "Package pgsql $(PGSQLVERSION) for Bacula $(BAREOSVERSION)"
+	@echo "Package pgsql $(PGSQL_VERSION) for Bacula $(BAREOS_VERSION)"
 	@tar cjvPf ../pgsql-$(PGSQLVERSION)_$(BAREOSVERSION).tar.bz2 $(DESTDIR)$(confdir)/pgsql.conf.example $(DESTDIR)$(sbindir)/pgsql-archlog $(DESTDIR)$(sbindir)/pgsql-restore $(DESTDIR)$(plugindir)/pgsql-fd.so
 	@cp ../pgsql-$(PGSQLVERSION)_$(BAREOSVERSION).tar.bz2 /root/rpmbuild/SOURCES
 	@rpmbuild -bb inteos-pgsql.spec
