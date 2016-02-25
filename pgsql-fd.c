@@ -452,8 +452,14 @@ bRC parse_plugin_command ( bpContext *ctx, const ParseMode parse_mode, const cha
          FREE ( pinst->configfile );
          return bRC_Error;
       }
-   
-      pinst->paramlist = parse_config_file ( pinst->configfile );
+
+      if((pinst->paramlist = parse_config_file ( pinst->configfile )) == NULL) {
+          char errbuf[255];
+          JMSG2(ctx, M_FATAL, "Error reading config file: %s (%s)", pinst->configfile, 
+              strerror_r(errno, errbuf, sizeof(errbuf)));
+          FREE( pinst->configfile );
+          return bRC_Error;
+      }
       pinst->restore_command_value = bstrdup ( command );
    }
    return bRC_OK;
