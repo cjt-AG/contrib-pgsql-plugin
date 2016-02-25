@@ -16,3 +16,6 @@ pgsql-archlog
 pgsql-restore
 Makefile
 .libs
+
+# Editor Backup Files
+*~
