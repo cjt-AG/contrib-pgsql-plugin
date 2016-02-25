@@ -46,22 +46,18 @@ void pgsqllibinit ( int argc, char * argv[] ){
 
    char * prg;
    char * nprg;
-   char * dirtmp;
    
    prg = bstrdup ( argv[0] );
    nprg = basename ( prg );
    program_name = bstrdup ( nprg );
    FREE ( prg );
    
-   dirtmp = MALLOC ( PATH_MAX );
-   if ( realpath ( argv[0], dirtmp ) == NULL ){
+   program_directory = MALLOC ( PATH_MAX );
+   if ( realpath ( argv[0], program_directory ) == NULL ){
       /* error in resolving path */
-      FREE ( dirtmp );
-      dirtmp = argv[0];
+      FREE ( program_directory );
+      program_directory = argv[0];
    }
-   program_directory = bstrdup ( dirtmp );
-   
-   FREE ( dirtmp );
 }
 
 /* returns a pointer into program name variable */
