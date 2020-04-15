@@ -38,6 +38,7 @@ TODO:
 
 #include "bareos.h"
 #include "fd_plugins.h"
+#include "lib/dlist.h"
 
 /* it is PostgreSQL backup plugin, so we need a libpq library */
 #include <libpq-fe.h>
@@ -50,6 +51,8 @@ TODO:
 
 #include "keylist.h"
 #include "parseconfig.h"
+
+namespace filedaemon {
 
 /* 
  * libbac uses its own sscanf implementation which is not compatible with
@@ -254,7 +257,7 @@ typedef struct _pg_plug_inst {
 /*
  * Plugin called here when it is first loaded
  */
-bRC DLL_IMP_EXP loadPlugin(bInfo *lbinfo,
+bRC loadPlugin(bInfo *lbinfo,
                            bFuncs *lbfuncs,
                            genpInfo **pinfo,
                            pFuncs **pfuncs)
@@ -460,7 +463,7 @@ bRC parse_plugin_command ( bpContext *ctx, const ParseMode parse_mode, const cha
           FREE( pinst->configfile );
           return bRC_Error;
       }
-      pinst->restore_command_value = bstrdup ( command );
+      pinst->restore_command_value = strdup ( command );
    }
    return bRC_OK;
 }
@@ -1337,7 +1340,7 @@ static bRC startBackupFile(bpContext *ctx, struct save_pkt *sp){
          snprintf ( buf, PATH_MAX, "%s/%s",
                search_key ( pinst->paramlist, "ARCHDEST" ),
                pinst->curfile->value );
-         filename = bstrdup ( buf );
+         filename = strdup ( buf );
 
          FREE ( buf );
 
@@ -1401,7 +1404,7 @@ static bRC startBackupFile(bpContext *ctx, struct save_pkt *sp){
             filename = pinst->curfile->key;
          }
 
-         vfilename = bstrdup ( buf );
+         vfilename = strdup ( buf );
 
          FREE ( buf );
          DMSG2 ( ctx, D3, "filename=%s, vfilename=%s\n", filename, vfilename );
@@ -2488,3 +2491,6 @@ static bRC setFileAttributes(bpContext *ctx, struct restore_pkt *rp)
 #ifdef __cplusplus
 }
 #endif
+
+}
+

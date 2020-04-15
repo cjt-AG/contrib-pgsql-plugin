@@ -18,7 +18,6 @@
 #include <stdlib.h>
 #include <string.h>
 #include "parseconfig.h"
-#include "pluglib.h"
 
 /*
  * providing missing bstrndup function

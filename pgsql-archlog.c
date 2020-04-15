@@ -1,9 +1,9 @@
 /*
  * Copyright (c) 2013 by Inteos sp. z o.o.
  * All rights reserved. See LICENSE.pgsql for details.
- * 
+ *
  * Utility tool is used for performing PostgreSQL WAL files archiving according to supplied
- * config file. It is directly called by PGSQL instance and will by run with database owner
+ * config file. It is directly called by PGSQL instance and will be run with database owner
  * permissions.
  */
 /*
@@ -31,18 +31,18 @@
 */
 /*
 TODO:
-   * add exitstatus and detect of archive destination dir does not exist !!! - done
+   * add exitstatus and detect if archive destination dir does not exist !!! - done
    * add permission denied at archive destination dir !!! - done
-   * 
-   * if (catdb is unavailable) 
+   *
+   * if (catdb is unavailable)
    * then
    *  copy_wal_file
    *  prepare_queue_file [ walfilename.queued ]
    * else
    *  perform_queue_batch
    *  copy_wal_file_as_usual
-   * fi 
-   * 
+   * fi
+   *
    * add timeout watchdog thread to check if everything is ok.
    * add remote ARCHDEST using SSH/SCP
    * prepare a docummentation about plugin
@@ -60,21 +60,21 @@ TODO:
 #include <errno.h>
 #include <string.h>
 #include "pgsqllib.h"
- 
+
 /*
  * pgsql-archlog exit status:
  *  0 - OK
  *  1 - "Not enough parameters!"
  *  2 - "WAL filename and pathname required!"
  *  3 - "Problem connecting to catalog database!"
- *  
+ *
  *  5 - "another wal backup is in progress"
  *  6 - "another wal archiving is in progress"
  *  7 - "CATDB: SQL Exec error!"
  *  8 - "CATDB: SQL insert error!"
  *  9 - "CATDB: SQL update error!"
  *  10 - "Archived wal file exits!"
- *  11 - "Multiply WAL archiving problem!"    
+ *  11 - "Multiply WAL archiving problem!"
  *  12 - "ARCHDEST access problem: %errno"
  *  13 - "Unknown catalog status!"
  *  14 - "ARCHDEST is not a directory"
@@ -105,7 +105,7 @@ enum ARCHEXITS {
 /*
  * connects into catalog database
  * uppon succesful fills required pgdata structure fields
- * 
+ *
  * input:
  *    pdata->paramlist - connection and configuration parameters
  * output:
@@ -139,8 +139,8 @@ void check_env_setup ( pgsqldata * pdata ){
    int err = 0;
    char * sql;
    PGresult * result;
-  
-   printf (">> PGSQL-ARCHLOG check <<\n"); 
+
+   printf (">> PGSQL-ARCHLOG check <<\n");
    /* check avaliability of ARCHDEST */
    printf ("Checking config parameters ... ");
    archdest = search_key ( pdata->paramlist, "ARCHDEST" );
@@ -148,12 +148,12 @@ void check_env_setup ( pgsqldata * pdata ){
       printf ("\n> ARCHDEST parameter not found!");
       err = 1;
    }
-   /* check availiability of CATDB* parameters */
-   if ( !search_key ( pdata->paramlist, "CATDBHOST" ) ){
+   /* check availability of CATDB* parameters */
+   if ( !search_key(pdata->paramlist, "CATDBHOST")) {
       printf ("\n> CATDBHOST parameter not found!");
       err = 1;
    }
-   if ( !search_key ( pdata->paramlist, "CATDBPORT" ) ){
+   if ( !search_key ( pdata->paramlist, "CATDBPORT")) {
       printf ("\n> CATDBPORT parameter not found!");
       err = 1;
    }
@@ -196,13 +196,13 @@ void check_env_setup ( pgsqldata * pdata ){
       printf ("success\n");
       /* checking sql execution and pgsql_archivelogs avaliability */
       printf ("Checking pgsql_archivelogs on catdb ... ");
-   
+
       sql = MALLOC ( SQLLEN );
       snprintf ( sql, SQLLEN, "select 1 from pgsql_archivelogs limit 1;");
 
       result = PQexec ( pdata->catdb, sql );
       FREE ( sql );
-   
+
       if ( PQresultStatus ( result ) != PGRES_TUPLES_OK ){
          printf ("failed!");
          exit(1);
@@ -221,7 +221,7 @@ void check_env_setup ( pgsqldata * pdata ){
 
 /*
  * parse execution arguments and fills required pdata structure fields
- * 
+ *
  * input:
  *    pdata - pointer to primary data structure
  *    argc, argv - execution envinroment variables
@@ -253,12 +253,12 @@ void parse_args ( pgsqldata * pdata, int argc, char* argv[] ){
          continue;
       }
       if ( ! pdata->walfilename ){
-         pdata->walfilename = bstrdup ( argv[i] );
+         pdata->walfilename = strdup ( argv[i] );
          continue;
       }
 
       if ( ! pdata->pathtowalfilename ){
-         pdata->pathtowalfilename = bstrdup ( argv[i] );
+         pdata->pathtowalfilename = strdup ( argv[i] );
          break;
       }
    }
@@ -293,7 +293,7 @@ int perform_copy_wal_file ( pgsqldata * pdata ){
 
    int err;
    char * arch;
-   
+
    arch = MALLOC ( BUFLEN );
 
    ASSERT_NVAL_RET_ONE ( arch );
@@ -305,13 +305,13 @@ int perform_copy_wal_file ( pgsqldata * pdata ){
    err = _copy_wal_file ( pdata, pdata->pathtowalfilename, arch);
 
    FREE ( arch );
-   
+
    return err;
 }
 
 /*
  * gets information of walid from catalog database
- * 
+ *
  * input:
  *    pdata - context data
  * output:
@@ -319,11 +319,11 @@ int perform_copy_wal_file ( pgsqldata * pdata ){
  *    < 0 - value not found
  */
 int get_walid_from_catalog ( pgsqldata * pdata ){
-   
+
    int pgid = -1;
    char * sql;
    PGresult * result;
-   
+
    sql = MALLOC ( SQLLEN );
    snprintf ( sql, SQLLEN, "select id from pgsql_archivelogs where client='%s' and filename='%s'",
          search_key ( pdata->paramlist, "ARCHCLIENT" ),
@@ -331,7 +331,7 @@ int get_walid_from_catalog ( pgsqldata * pdata ){
 
    result = PQexec ( pdata->catdb, sql );
    FREE ( sql );
-   
+
    if ( PQresultStatus ( result ) != PGRES_TUPLES_OK ){
       abortprg ( pdata, 6, "CATDB: SQL Exec error!" );
    }
@@ -340,13 +340,13 @@ int get_walid_from_catalog ( pgsqldata * pdata ){
       /* we found a row and pgid will be a primary key of the row */
       pgid = atoi ((char *) PQgetvalue ( result, 0, PQfnumber ( result, "id") ));
    }
-   
+
    return pgid;
 }
 
 /*
  * perform an insert of archival status into catalog
- * 
+ *
  * input:
  *  pdata - primary data
  *  status - status number to insert into catdb
@@ -354,11 +354,11 @@ int get_walid_from_catalog ( pgsqldata * pdata ){
  *  pgid - id of inserted row
  */
 int insert_status_in_catalog ( pgsqldata * pdata, int status ){
-   
+
    char * sql;
    PGresult * result;
    int pgid;
-   
+
    sql = MALLOC ( SQLLEN );
    /* insert status in catalog */
    snprintf ( sql, SQLLEN, "insert into pgsql_archivelogs (client, filename, status) values ('%s', '%s', '%i')",
@@ -367,13 +367,13 @@ int insert_status_in_catalog ( pgsqldata * pdata, int status ){
 
    result = PQexec ( pdata->catdb, sql );
    FREE ( sql );
-   
+
    if ( PQresultStatus ( result ) != PGRES_COMMAND_OK ){
       abortprg ( pdata, EXITCATDBEINS, "CATDB: SQL insert error!" );
    }
-   
+
    pgid = get_walid_from_catalog ( pdata );
-   
+
    return pgid;
 }
 
@@ -389,7 +389,7 @@ int update_status_in_catalog ( pgsqldata * pdata, int pgid, int status ){
 
    char * sql;
    PGresult * result;
-   
+
    sql = MALLOC ( SQLLEN );
    /* update status in catalog */
    snprintf ( sql, SQLLEN, "update pgsql_archivelogs set status = %i, mod_date = now() where id='%i'",
@@ -397,11 +397,11 @@ int update_status_in_catalog ( pgsqldata * pdata, int pgid, int status ){
 
    result = PQexec ( pdata->catdb, sql );
    FREE ( sql );
-   
+
    if ( PQresultStatus ( result ) != PGRES_COMMAND_OK ){
       abortprg ( pdata, EXITCATDBEUPD, "CATDB: SQL update error!" );
    }
-   
+
    return 0;
 }
 
@@ -413,22 +413,22 @@ int update_status_in_catalog ( pgsqldata * pdata, int pgid, int status ){
  *    program exits on every error with apropirate exit code and error message
  */
 void check_wal_archdest ( pgsqldata * pdata ){
-   
+
    char * buf;
    struct stat statp;
    int err;
    int fd;
-   
+
    buf = MALLOC ( BUFLEN );
    ASSERT_NVAL_RET ( buf );
-   
+
    err = stat ( search_key ( pdata->paramlist, "ARCHDEST" ), &statp );
    if ( err != 0 ){
-      /* archive destination does not exist or other problem */ 
+      /* archive destination does not exist or other problem */
       snprintf ( buf, BUFLEN, "ARCHDEST access problem: %s", strerror ( errno ) );
       abortprg ( pdata, EXITARCHDSTACC, buf );
    }
-   
+
    if ( ! S_ISDIR ( statp.st_mode ) ){
       /* archive destination is not a directory problem, rise en error */
       abortprg ( pdata, EXITARCHDSTDIR, "ARCHDEST is not a directory" );
@@ -456,13 +456,13 @@ void check_wal_archdest ( pgsqldata * pdata ){
 }
 
 /*
- * 
+ *
  */
 int perform_wal_archive ( pgsqldata * pdata ){
 
    int err;
    int pgid;
-   
+
    /* first - check if archdest is available for archiving */
    check_wal_archdest ( pdata );
 
@@ -485,7 +485,7 @@ int perform_wal_archive ( pgsqldata * pdata ){
 }
 
 /*
- * 
+ *
  */
 int perform_another_wal_archive ( pgsqldata * pdata, int pgid ){
 
@@ -496,7 +496,7 @@ int perform_another_wal_archive ( pgsqldata * pdata, int pgid ){
 
    sql = MALLOC ( SQLLEN );
    ASSERT_NVAL_RET_ONE ( sql );
-   
+
    snprintf ( sql, SQLLEN, "select status from pgsql_archivelogs where id='%i'", pgid);
    result = PQexec ( pdata->catdb, sql );
    FREE ( sql );
@@ -509,17 +509,17 @@ int perform_another_wal_archive ( pgsqldata * pdata, int pgid ){
    switch (pgstatus){
       case PGSQL_STATUS_WAL_ARCH_START:
       case PGSQL_STATUS_WAL_ARCH_INPROG:
-      case PGSQL_STATUS_WAL_ARCH_FAILED:         
+      case PGSQL_STATUS_WAL_ARCH_FAILED:
          /* previous archiving process (copy wal) was unsuccessfull, copy one more time */
          update_status_in_catalog ( pdata, pgid, PGSQL_STATUS_WAL_ARCH_START );
-      
+
          /* perform a wal copy */
          err = perform_copy_wal_file ( pdata );
-      
+
          /* if err != 0 this is an error, one more time */
          update_status_in_catalog ( pdata, pgid,
                   err ? PGSQL_STATUS_WAL_ARCH_FAILED : PGSQL_STATUS_WAL_ARCH_FINISH );
-                  
+
          break;
       case PGSQL_STATUS_WAL_ARCH_FINISH: /* archiving finish without error */
       case PGSQL_STATUS_WAL_ARCH_MULTI: /* multiply archiving when previous was errorless */
@@ -530,7 +530,7 @@ int perform_another_wal_archive ( pgsqldata * pdata, int pgid ){
 
          /* perform a wal copy */
          err = perform_copy_wal_file ( pdata );
-      
+
          /* if err != 0 this is an error, one more time */
          update_status_in_catalog ( pdata, pgid,
                   err ? PGSQL_STATUS_WAL_ARCH_FAILED : PGSQL_STATUS_WAL_ARCH_MULTI );

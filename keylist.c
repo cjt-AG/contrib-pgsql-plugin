@@ -10,6 +10,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include "lib/dlist.h"
 #include "keylist.h"
 
 /*
@@ -60,8 +61,8 @@ keyitem * new_keyitem ( const char * key, const char * value, const int attrs ){
    /* reset all variables */
    memset ( item, 0, sizeof ( keyitem ) );
    /* produce an item from supplied data */
-   item->key = key ? bstrdup(key) : NULL;
-   item->value = value ? bstrdup(value) : NULL;
+   item->key = key ? strdup(key) : NULL;
+   item->value = value ? strdup(value) : NULL;
    item->attrs = attrs;
 
    return item;
@@ -80,7 +81,7 @@ keylist * new_keylist ( keyitem * item ){
    keylist * list;
 
    /* create a list */
-   list = New ( keylist ( item, &item->link ) );
+   list = new keylist ( item, &item->link );
    if ( ! list ){
       /* no memory error? */
       keyitem_free(item);
@@ -111,7 +112,7 @@ keylist * new_keylist ( const char * key, const char * value, const int attrs){
    }
 
    /* create a list */
-   list = New ( keylist ( item, &item->link ) );
+   list = new keylist ( item, &item->link );
    if ( ! list ){
       /* no memory error? */
       keyitem_free(item);
@@ -134,7 +135,7 @@ keylist * add_keylist_item ( keylist * list, keyitem * add ){
    keylist * nl = list;
 
    if ( ! list ){
-      nl = New ( keylist ( add, &add->link ) );
+      nl = new keylist ( add, &add->link );
    }
 
    if ( add ){
@@ -238,3 +239,4 @@ int search_key_attr ( keylist * list, const char * key ){
 
    return KEY_NOT_FOUND;
 }
+

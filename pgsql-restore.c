@@ -120,25 +120,11 @@ TODO:
    * prepare a docummentation about plugin
  */
 
-#include <stdio.h>
-#include <ctype.h>
-#include <unistd.h>
-#include <sys/types.h>
-#include <sys/stat.h>
-#include <fcntl.h>
-#include <stdlib.h>
-#include <string.h>
-#include <time.h>
 #include <libpq-fe.h>
-#include <errno.h>
-#include <sys/wait.h>
 #include <sys/socket.h>
-#include <sys/socket.h>
-#include <netdb.h>
-#include <arpa/inet.h>
 #include <libgen.h>
-#include <pwd.h>
-#include <grp.h>
+#include <lib/cram_md5.h>
+#include <openssl/evp.h>
 #include "pgsqllib.h"
 #include "utils.h"
 
@@ -197,7 +183,7 @@ void parse_args ( pgsqldata * pdata, int argc, char* argv[] ){
          fullconfpath = MALLOC(BUFLEN);
          ASSERT_NVAL_RET(fullconfpath);
          realpath(optarg, fullconfpath );
-         pdata->configfile = bstrdup(fullconfpath);
+         pdata->configfile = strdup(fullconfpath);
          FREE (fullconfpath);
          break;
 
@@ -210,17 +196,17 @@ void parse_args ( pgsqldata * pdata, int argc, char* argv[] ){
 
       case 'x':
          if (pdata->pitr == PITR_CURRENT) {
-            pdata->restorepit = bstrdup(optarg);
+            pdata->restorepit = strdup(optarg);
             pdata->pitr = PITR_XID;
          }
          break;
 
       case 'w':
-         pdata->where = bstrdup(optarg);
+         pdata->where = strdup(optarg);
          break;
 
       case 'r':
-         pdata->restoreclient = bstrdup(optarg);
+         pdata->restoreclient = strdup(optarg);
          break;
 
       case 'v':
@@ -246,11 +232,11 @@ void parse_args ( pgsqldata * pdata, int argc, char* argv[] ){
          continue;
       }
       if ( pdata->mode == PGSQL_ARCH_RESTORE && ! pdata->walfilename ){
-         pdata->walfilename = bstrdup ( argv[i] );
+         pdata->walfilename = strdup ( argv[i] );
          continue;
       }
       if ( pdata->mode == PGSQL_ARCH_RESTORE && ! pdata->pathtowalfilename ){
-         pdata->pathtowalfilename = bstrdup ( argv[i] );
+         pdata->pathtowalfilename = strdup ( argv[i] );
          break;
       }
    }
@@ -1319,7 +1305,7 @@ int auth_director ( pgsqldata * pdata, char * password ){
                hmac );
 
    /* konwertujemy to wszystko do base64 */
-   bin_to_base64 ( buf, 50, (char *) hmac, 16, 1 );
+   EVP_EncodeBlock ( (unsigned char *) buf, hmac, MSGBUFLEN );
 
    /* S: <hmd5 chellenge response> */
    err = send_director_msg ( pdata, buf );
@@ -2447,3 +2433,4 @@ int main(int argc, char* argv[]){
 #ifdef __cplusplus
 }
 #endif
+
